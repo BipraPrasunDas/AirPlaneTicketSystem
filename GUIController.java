@@ -1,11 +1,13 @@
 package airline;
 
 import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.time.LocalDate;
 import java.util.List;
 
 public class GUIController {
+    private JFrame mainFrame;
     private FlightManager flightManager;
     private BookingManager bookingManager;
 
@@ -14,44 +16,150 @@ public class GUIController {
         this.bookingManager = bookingManager;
     }
 
+    // Display the search flights interface
     public void displaySearchFlights() {
-        JFrame frame = new JFrame("Search Flights");
-        frame.setSize(600, 400);
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        // Frame to hold the search interface
+        JFrame searchFrame = new JFrame("Search Flights");
+        searchFrame.setSize(800, 600);
 
-        JPanel panel = new JPanel(new GridLayout(0, 2));
+        // Panel to hold all components
+        JPanel panel = new JPanel(new BorderLayout());
 
+        // Panel for input fields (origin, destination, date)
+        JPanel inputPanel = new JPanel(new GridLayout(4, 2, 10, 10));
+        inputPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        JLabel originLabel = new JLabel("Origin:");
         JTextField originField = new JTextField();
+
+        JLabel destinationLabel = new JLabel("Destination:");
         JTextField destinationField = new JTextField();
-        JTextField dateField = new JTextField("yyyy-mm-dd");
+
+        JLabel dateLabel = new JLabel("Departure Date (YYYY-MM-DD):");
+        JTextField dateField = new JTextField();
 
         JButton searchButton = new JButton("Search");
-        JTextArea resultArea = new JTextArea();
 
+        // Add the components to input panel
+        inputPanel.add(originLabel);
+        inputPanel.add(originField);
+        inputPanel.add(destinationLabel);
+        inputPanel.add(destinationField);
+        inputPanel.add(dateLabel);
+        inputPanel.add(dateField);
+        inputPanel.add(searchButton);
+
+        // Table to display search results (flights)
+        JTable flightsTable = new JTable(new DefaultTableModel(new String[]{"Flight ID", "Origin", "Destination", "Date", "Time", "Seats", "Price"}, 0));
+        JScrollPane tableScrollPane = new JScrollPane(flightsTable);
+
+        panel.add(inputPanel, BorderLayout.NORTH);
+        panel.add(tableScrollPane, BorderLayout.CENTER);
+
+        // Panel for action buttons
+        JPanel actionPanel = new JPanel();
+        JButton bookButton = new JButton("Book Selected Flight");
+        actionPanel.add(bookButton);
+        panel.add(actionPanel, BorderLayout.SOUTH);
+
+        // Action for search button
         searchButton.addActionListener(e -> {
-            String origin = originField.getText();
-            String destination = destinationField.getText();
-            LocalDate date = LocalDate.parse(dateField.getText());
+            String origin = originField.getText().trim();
+            String destination = destinationField.getText().trim();
+            LocalDate date = LocalDate.parse(dateField.getText().trim());
 
-            List<Flight> flights = flightManager.searchFlights(origin, destination, date);
-            resultArea.setText("");
-            for (Flight flight : flights) {
-                resultArea.append(flight.toString() + "\n");
+            // Search for flights using FlightManager
+            List<Flight> matchedFlights = flightManager.searchFlights(origin, destination, date);
+
+            // Update table with search results
+            DefaultTableModel model = (DefaultTableModel) flightsTable.getModel();
+            model.setRowCount(0); // Clear previous results
+            for (Flight flight : matchedFlights) {
+                model.addRow(new Object[]{flight.getFlightID(), flight.getOrigin(), flight.getDestination(),
+                        flight.getDepartureDate(), flight.getDepartureTime(), flight.getTotalSeats(), flight.getBasePrice()});
             }
         });
 
-        panel.add(new JLabel("Origin:"));
-        panel.add(originField);
-        panel.add(new JLabel("Destination:"));
-        panel.add(destinationField);
-        panel.add(new JLabel("Date:"));
-        panel.add(dateField);
-        panel.add(searchButton);
+        // Action for book button
+        bookButton.addActionListener(e -> {
+            int selectedRow = flightsTable.getSelectedRow();
+            if (selectedRow >= 0) {
+                String flightID = (String) flightsTable.getValueAt(selectedRow, 0);
+                Flight selectedFlight = flightManager.getFlightByID(flightID);
+                if (selectedFlight != null) {
+                    showBookingForm(selectedFlight);
+                }
+            } else {
+                JOptionPane.showMessageDialog(searchFrame, "Please select a flight to book.");
+            }
+        });
 
-        frame.add(panel, BorderLayout.NORTH);
-        frame.add(new JScrollPane(resultArea), BorderLayout.CENTER);
+        // Display the search frame
+        searchFrame.add(panel);
+        searchFrame.setVisible(true);
+    }
 
-        frame.setVisible(true);
+    // Display booking form when a flight is selected
+    private void showBookingForm(Flight flight) {
+        JFrame bookingFrame = new JFrame("Book Flight");
+        bookingFrame.setSize(400, 300);
+
+        JPanel panel = new JPanel(new GridLayout(4, 2, 10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        JLabel nameLabel = new JLabel("Customer Name:");
+        JTextField nameField = new JTextField();
+
+        JLabel seatLabel = new JLabel("Seat Number:");
+        JTextField seatField = new JTextField();
+
+        JButton bookButton = new JButton("Confirm Booking");
+
+        panel.add(nameLabel);
+        panel.add(nameField);
+        panel.add(seatLabel);
+        panel.add(seatField);
+        panel.add(new JLabel());
+        panel.add(bookButton);
+
+        // Handle booking action
+        bookButton.addActionListener(e -> {
+            String customerName = nameField.getText().trim();
+            int seatNumber = Integer.parseInt(seatField.getText().trim());
+
+            try {
+                Booking booking = bookingManager.createBooking(flight, customerName, seatNumber);
+                JOptionPane.showMessageDialog(bookingFrame, "Booking Confirmed!\nBooking ID: " + booking.getBookingID() +
+                        "\nPassword: " + booking.getPassword());
+                bookingFrame.dispose();
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(bookingFrame, "Error: " + ex.getMessage());
+            }
+        });
+
+        bookingFrame.add(panel);
+        bookingFrame.setVisible(true);
+    }
+
+    public static void main(String[] args) {
+        // Initialize FileHandler to read flight and booking data
+        FileHandler fileHandler = new FileHandler();
+
+        // Load flights from file
+        List<Flight> flights = fileHandler.readFlights("flights.txt");
+
+        // Create FlightManager with loaded flights
+        FlightManager flightManager = new FlightManager(flights);
+
+        // Initialize BookingManager
+        BookingManager bookingManager = new BookingManager(fileHandler.readBookings("bookings.txt"), fileHandler);
+
+        // Create and show the GUI
+        GUIController guiController = new GUIController(flightManager, bookingManager);
+        guiController.displaySearchFlights();
     }
 }
 
+      
+
+     
