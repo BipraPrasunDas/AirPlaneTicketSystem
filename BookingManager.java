@@ -1,50 +1,58 @@
 package airline;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 public class BookingManager {
-    private List<Booking> bookings; // Stores all bookings
-    private FileHandler fileHandler; // Handles file operations for bookings
+    private List<Booking> bookings;
+    private FileHandler fileHandler;
 
-    // Constructor
     public BookingManager(List<Booking> bookings, FileHandler fileHandler) {
         this.bookings = bookings;
         this.fileHandler = fileHandler;
     }
 
-    /**
-     * Create a new booking for a flight.
-     */
-    public Booking createBooking(Flight flight, String customerName, int seatNumber) {
-        if (!flight.isSeatAvailable(seatNumber)) {
-            throw new IllegalArgumentException("Seat is not available for booking.");
+    public List<Booking> createBooking(Flight flight, String customerName, List<Integer> seatNumbers) {
+        List<Booking> newBookings = new ArrayList<>();
+
+        // Check if all selected seats are available
+        for (int seatNumber : seatNumbers) {
+            if (!flight.isSeatAvailable(seatNumber)) {
+                throw new IllegalArgumentException("Seat " + seatNumber + " is not available for booking.");
+            }
         }
 
-        // Generate a unique booking ID
-        String bookingID = UUID.randomUUID().toString();
-        // Calculate the final price
-        double finalPrice = flight.calculatePrice(LocalDate.now(), 1);
+        // Create bookings for each seat
+        for (int seatNumber : seatNumbers) {
+            String bookingID = generateCompactBookingID(flight, customerName, seatNumber);
 
-        // Create the booking object
-        Booking booking = new Booking(bookingID, flight, customerName, LocalDate.now(), seatNumber, finalPrice);
+            // Use the full customer name without generating a short username
+            String fullCustomerName = customerName;
 
-        // Mark the seat as booked in the flight
-        flight.bookSeat(seatNumber);
+            // Calculate the price for the selected seat (total price calculation adjusted)
+            double finalPrice = flight.calculatePrice(LocalDate.now(), List.of(seatNumber));
 
-        // Add the booking to the list
-        bookings.add(booking);
+            Booking booking = new Booking(bookingID, flight, fullCustomerName, LocalDate.now(), seatNumber, finalPrice);
 
-        // Update the bookings file
+            // Book the seat and add the booking to the list
+            flight.bookSeat(seatNumber);
+            bookings.add(booking);
+            newBookings.add(booking);
+        }
+
+        // Update the booking file
         updateBookingFile("bookings.txt");
-
-        return booking;
+        return newBookings;
     }
 
-    /**
-     * Retrieve a booking by its ID.
-     */
+    private String generateCompactBookingID(Flight flight, String customerName, int seatNumber) {
+        String flightCode = flight.getFlightID().substring(0, 3).toUpperCase(); // First 3 characters of flight ID
+        String customerNameInitials = customerName.split(" ")[0].toUpperCase(); // First name initial or full first name
+        String dateCode = LocalDate.now().toString().replace("-", "").substring(2); // YYMMDD format
+        return flightCode + customerNameInitials + dateCode + seatNumber;
+    }
+
     public Booking getBooking(String bookingID) {
         for (Booking booking : bookings) {
             if (booking.getBookingID().equals(bookingID)) {
@@ -54,16 +62,10 @@ public class BookingManager {
         return null;
     }
 
-    /**
-     * Updates the bookings.txt file.
-     */
     public void updateBookingFile(String filename) {
         fileHandler.writeBookings(bookings, filename);
     }
 
-    /**
-     * Retrieve booking details if the password matches.
-     */
     public String getBookingDetails(String bookingID, String password) {
         Booking booking = getBooking(bookingID);
         if (booking != null && booking.getPassword().equals(password)) {
@@ -78,24 +80,14 @@ public class BookingManager {
         }
     }
 
-    /**
-     * Check if a seat is available for a specific flight.
-     */
-    public boolean isSeatAvailable(Flight flight, int seatNumber) {
-        return flight.isSeatAvailable(seatNumber);
-    }
-
-    /**
-     * Reload bookings from file (for system reinitialization).
-     */
     public void reloadBookings(String filename) {
         bookings = fileHandler.readBookings(filename);
     }
 
-    /**
-     * List all bookings (for administrative purposes).
-     */
     public List<Booking> getAllBookings() {
         return bookings;
     }
 }
+
+
+    
