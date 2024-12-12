@@ -45,7 +45,15 @@ public class FileHandler {
         try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
             String line;
             while ((line = br.readLine()) != null) {
+                if (line.trim().isEmpty()) {
+                    continue; // Skip empty lines
+                }
                 String[] parts = line.split(",");
+                if (parts.length < 11) { // Ensure there are enough fields in the line
+                    System.out.println("Skipping malformed line: " + line);
+                    continue; // Skip malformed lines
+                }
+
                 String bookingID = parts[0];
                 String customerName = parts[1];
                 String flightID = parts[2];
@@ -58,6 +66,7 @@ public class FileHandler {
                 int seatNumber = Integer.parseInt(parts[9]);
                 double finalPrice = Double.parseDouble(parts[10]);
                 String password = parts[11];
+
                 Flight flight = new Flight(flightID, origin, destination, departureDate, departureTime, totalSeats, basePrice);
                 Booking booking = new Booking(bookingID, flight, customerName, departureDate, seatNumber, finalPrice);
                 bookings.add(booking);
@@ -67,6 +76,7 @@ public class FileHandler {
         }
         return bookings;
     }
+
 
     public void writeBookings(List<Booking> bookings, String filename) {
         try (BufferedWriter bw = new BufferedWriter(new FileWriter(filename))) {
@@ -79,4 +89,3 @@ public class FileHandler {
         }
     }
 }
-
