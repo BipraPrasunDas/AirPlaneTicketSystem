@@ -129,7 +129,7 @@ public class GUIController {
         JFrame bookingFrame = this.createFrame("Book Flight", 500, 400);
         this.addMenuBar(bookingFrame);
         JPanel panel = new JPanel(new GridLayout(6, 2, 10, 10));
-        panel.setBackground(Color.DARK_GRAY);
+        panel.setBackground(Color.BLACK);
         panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         JLabel nameLabel = this.createLabel("Customer Name:");
         JTextField nameField = new JTextField();
